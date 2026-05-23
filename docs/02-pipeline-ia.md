@@ -1,246 +1,47 @@
-# 02 — Pipeline IA : Artnalyse
+# Comment l'analyse se construit — Artnalyse
 
-## Vue d'Ensemble
+## Le parcours d'une photo à l'analyse
 
-Le pipeline IA d'Artnalyse combine trois technologies complémentaires pour produire une analyse complète d'une oeuvre d'art en temps réel :
+L'utilisateur prend une photo. Trente secondes plus tard, il écoute un récit de 2 minutes sur l'œuvre qu'il a devant lui. Voici ce qui se passe entre les deux.
 
-```
-Photo oeuvre
-     ↓
-[Optionnel] Reverse Image Search (Google Lens / SerpAPI)
-     ↓
-OpenAI GPT-5 Vision — Streaming NDJSON 5 sections
-     ↓
-OpenAI TTS — Audio en parallèle
-     ↓
-Affichage progressif + lecture audio
-```
+## L'identification : résoudre le problème de la page blanche
 
-## Étape 1 : Capture et Préparation
+Le premier défi est d'identifier l'œuvre. Si l'utilisateur saisit lui-même le nom de l'artiste et du titre, le travail est simplifié. Mais dans la majorité des cas, il ne sait pas ce qu'il regarde — c'est justement pour ça qu'il utilise l'app.
 
-### Modes de capture
-- **Caméra native** : expo-camera, capture temps réel
-- **Galerie** : expo-image-picker, import depuis la photothèque
-- **Double photo** : oeuvre principale + cartel (pancarte muséale) optionnel
-- **Saisie manuelle** : artiste + titre optionnels (enrichissement direct sans reverse search)
+La solution retenue : avant même d'envoyer la photo au modèle d'analyse, l'app interroge Google Lens pour tenter une identification par image. Le résultat de cette recherche est transmis au modèle comme un indice, pas comme une vérité absolue. Si Google Lens retourne "Victoire de Samothrace avec une confiance élevée", le modèle en tient compte. Si la confiance est faible, il analyse l'image de façon indépendante.
 
-### Préparation de l'image
-```typescript
-// Compression avant envoi (< 1MB recommandé pour latence optimale)
-const result = await ImageManipulator.manipulateAsync(
-  uri,
-  [{ resize: { width: 1024 } }],
-  { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-);
-```
+Cette approche en deux temps — recherche d'image puis analyse contextuelle — améliore significativement la précision sur les œuvres célèbres, sans dégrader les résultats sur les œuvres inconnues.
 
-## Étape 2 : Reverse Image Search (conditionnel)
+## L'analyse : une structure en cinq sections
 
-### Déclenchement
-La recherche Google Lens est activée seulement si :
-- Pas de photo de cartel fournie
-- ET artiste + titre ne sont PAS tous les deux saisis manuellement
+L'analyse produit systématiquement cinq sections dans le même ordre :
 
-### Architecture SerpAPI Google Lens
+**Identification** : titre, artiste, date, mouvement, technique, dimensions, lieu de conservation. Ce sont les informations qu'on trouve sur un cartel de musée, en plus complet.
 
-```typescript
-// supabase/artwork-analysis-stream/reverse-image-search.ts
+**Récit** : 200 à 250 mots écrits à la deuxième personne, style audioguide professionnel. Ce texte est celui qui sera lu à voix haute. Il est rédigé pour être écouté debout devant une œuvre, pas pour être lu sur un écran.
 
-async function searchWithGoogleLens(imageBase64: string): Promise<LensResult[]> {
-  // 1. Upload temporaire vers Supabase Storage
-  const { data } = await supabase.storage
-    .from('temp-images')
-    .upload(`lens-${uuid}.jpg`, base64ToBlob(imageBase64));
+**Points clés** : quatre à cinq éléments essentiels pour comprendre l'œuvre — le contexte historique, la technique utilisée, le symbolisme, ce qui est remarquable dans l'exécution.
 
-  // 2. Recherche Google Lens via SerpAPI
-  const response = await fetch(`https://serpapi.com/search?engine=google_lens&url=${publicUrl}&api_key=${SERPAPI_KEY}`);
+**Anecdote** : une seule, choisie pour sa capacité à faire vivre l'œuvre. Le critère : est-ce que l'utilisateur va le raconter à quelqu'un ce soir ?
 
-  // 3. Timeout 16 secondes (expérience utilisateur vs précision)
-  return withTimeout(response.json(), 16000);
-}
-```
+**Œuvres similaires** : quatre suggestions avec une phrase d'explication pour chacune. Pas une liste de l'artiste, mais des œuvres qui partagent quelque chose de précis avec celle analysée — une période, une technique, un thème.
 
-### Algorithme de Scoring
+## Pourquoi l'analyse s'affiche progressivement
 
-```typescript
-function scoreResult(result: LensResult): number {
-  let score = 0;
+Un spinner de 10 secondes tue l'expérience dans un musée. L'utilisateur est debout, peut-être entouré d'autres visiteurs, l'attention d'une œuvre d'art est fugace.
 
-  // Correspondance titre (most important)
-  if (exactTitleMatch(result.title)) score += 0.4;
-  else if (partialTitleMatch(result.title)) score += 0.2;
+L'affichage progressif change la perception du temps d'attente. L'identification apparaît en quelques secondes, le récit suit, puis les autres sections. L'utilisateur commence à lire pendant que l'analyse se termine. En pratique, il n'attend jamais — il lit ou écoute en continu.
 
-  // Correspondance artiste
-  if (artistMatch(result.snippet)) score += 0.3;
+## L'audio : généré pendant l'affichage
 
-  // Source institutionnelle (musée, encyclopédie)
-  if (isInstitutionalSource(result.source)) score += 0.2;
+Le récit textuel de la section 2 est transformé en audio dès qu'il est disponible, en parallèle de la génération des sections suivantes. Quand l'utilisateur appuie sur "Écouter le récit", le fichier audio est déjà prêt sur son appareil. Il est conservé localement : l'utilisateur peut réécouter une analyse passée sans connexion.
 
-  // Cohérence temporelle (date mentionnée)
-  if (dateCoherence(result.snippet)) score += 0.1;
+## La photo du cartel
 
-  return Math.min(score, 1.0);
-}
+Si l'utilisateur prend une photo du cartel en même temps que l'œuvre (l'étiquette avec le titre, l'artiste, la date), l'analyse est plus précise et la recherche d'image n'est pas déclenchée. C'est une fonctionnalité discrète mais utile pour les musées qui exposent leurs cartels de façon lisible.
 
-// Niveaux de confiance → wording dans le prompt
-// High (≥0.8)   : "J'ai identifié avec certitude..."
-// Medium (≥0.5) : "Il s'agit probablement de..."
-// Low (<0.5)    : "Cette oeuvre pourrait être..."
-```
+## Les arbitrages
 
-### Enrichissement du prompt LLM
+**Vitesse vs précision.** La recherche d'image ajoute quelques secondes. Elle est déclenchée uniquement quand les informations manquent — sinon, l'analyse démarre immédiatement. Ce choix préserve la rapidité pour les utilisateurs qui saisissent manuellement, et améliore la précision pour ceux qui ne savent pas ce qu'ils regardent.
 
-Le résultat Google Lens est transmis comme "hint secondaire" au LLM. Il ne force jamais l'identification — le LLM peut le contredire si son analyse visuelle diverge.
-
-```typescript
-const hint = highConfidenceResult
-  ? `Hint (Google Lens, confiance élevée): "${result.title}" par ${result.artist}. Utilise cette information mais confirme par ton analyse visuelle.`
-  : `Hint (confiance faible): Potentiellement lié à "${result.title}". Analyse l'image de façon indépendante.`;
-```
-
-## Étape 3 : Streaming OpenAI GPT-5 Vision
-
-### Format NDJSON 5 sections
-
-Chaque section est émise comme une ligne JSON dès qu'elle est complète. Le mobile peut commencer l'affichage section 1 pendant que les sections 2-5 se génèrent.
-
-```typescript
-// Format de chaque ligne NDJSON
-type NdjsonLine =
-  | { type: 'identification'; data: ArtworkIdentification }
-  | { type: 'narrative';      data: { text: string } }
-  | { type: 'key_points';    data: KeyPoint[] }
-  | { type: 'anecdote';      data: Anecdote }
-  | { type: 'related_artworks'; data: RelatedArtwork[] }
-
-// Exemple de ligne 1 (identification)
-{
-  "type": "identification",
-  "data": {
-    "title": "La Victoire de Samothrace",
-    "artist": "Artiste inconnu",
-    "year": "Vers 200-190 av. J.-C.",
-    "period": "Hellénistique",
-    "movement": "Art grec",
-    "medium": "Marbre de Paros",
-    "dimensions": "244 cm (hauteur)",
-    "location": "Musée du Louvre, Paris"
-  }
-}
-```
-
-### Prompt Engineering
-
-```
-System: Tu es un guide culturel expert, spécialisé dans l'histoire de l'art.
-Tu analyses des oeuvres d'art et produis des analyses structurées en JSON.
-Réponds UNIQUEMENT avec des lignes JSON valides (NDJSON), une section par ligne.
-
-Sections dans l'ordre :
-1. identification : titre, artiste, année, période, mouvement, technique, dimensions, localisation
-2. narrative : texte audioguide fluide 200-250 mots à la 2ème personne du singulier
-3. key_points : 4-5 points clés { label, value }
-4. anecdote : UNE anecdote captivante { titre, contenu }
-5. related_artworks : 4 oeuvres similaires { titre, artiste, raison }
-
-[Context: hint reverse search si disponible]
-[Images: oeuvre principale + cartel optionnel]
-```
-
-### Streaming via XMLHttpRequest
-
-React Native ne supporte pas `fetch` avec streaming natif. Solution : XMLHttpRequest avec lecture progressive de `responseText`.
-
-```typescript
-// src/lib/openai/secure-client.ts
-
-function streamOpenAIChat(
-  payload: ChatPayload,
-  onLine: (line: NdjsonLine) => void,
-  onComplete: () => void
-): void {
-  const xhr = new XMLHttpRequest();
-  let processedLength = 0;
-
-  xhr.onprogress = () => {
-    const newText = xhr.responseText.slice(processedLength);
-    processedLength = xhr.responseText.length;
-
-    // Traitement ligne par ligne
-    const lines = newText.split('\n').filter(Boolean);
-    for (const line of lines) {
-      try {
-        const parsed = JSON.parse(line) as NdjsonLine;
-        onLine(parsed);
-
-        // Si section narrative → déclencher TTS en parallèle
-        if (parsed.type === 'narrative') {
-          triggerTTSDownload(parsed.data.text);
-        }
-      } catch (e) {
-        // Ligne incomplète — buffer pour la prochaine itération
-      }
-    }
-  };
-
-  xhr.onload = onComplete;
-  xhr.open('POST', SUPABASE_EDGE_FUNCTION_URL);
-  xhr.send(JSON.stringify(payload));
-}
-```
-
-## Étape 4 : Text-to-Speech (parallèle)
-
-### Pipeline TTS
-
-Dès que la section `narrative` est reçue, le téléchargement audio démarre en parallèle avec l'affichage des sections suivantes.
-
-```typescript
-// src/lib/tts-stream-client.ts
-
-async function downloadTTS(text: string, resultId: string): Promise<string> {
-  // 1. Appel Edge Function TTS
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/openai-tts-stream`, {
-    method: 'POST',
-    body: JSON.stringify({ text, voice: 'nova', model: 'tts-1-hd' })
-  });
-
-  // 2. Stream vers fichier local (FileSystem)
-  const audioPath = `${FileSystem.documentDirectory}tts/${resultId}.mp3`;
-  await FileSystem.downloadAsync(response.url, audioPath);
-
-  return audioPath;
-}
-```
-
-### Contrôles audio (expo-audio)
-
-```
-AudioPlayer
-├── Play / Pause
-├── Skip -5s / Skip +15s
-├── Seek slider (interactif)
-├── Vitesse : 0.75x | 1x | 1.25x | 1.5x | 2x
-└── Restart depuis le début
-```
-
-## Gestion des Erreurs
-
-| Scénario | Comportement |
-|---------|-------------|
-| Google Lens timeout (>16s) | Continue sans hint, analyse directe |
-| Oeuvre non identifiée | Analyse stylistique générale ("oeuvre impressionniste...") |
-| Réseau lent | Affichage progressif des sections déjà reçues |
-| TTS échoue | Texte affiché, bouton audio désactivé gracieusement |
-| Image floue | GPT-5 Vision produit quand même une analyse approximative |
-
-## Performance & Latences
-
-| Étape | Latence typique |
-|------|----------------|
-| Upload image → Edge Function | ~500ms |
-| Google Lens (si activé) | 2-8s |
-| Première section NDJSON | 1-3s après démarrage streaming |
-| Analyse complète (5 sections) | 5-15s |
-| TTS disponible | 3-8s après section narrative |
-| **Total ressenti utilisateur** | **~3-5s avant premier contenu** |
+**Généricité vs spécialisation.** Le modèle d'analyse n'est pas fine-tuné sur un corpus d'art. Il s'appuie sur sa connaissance générale, enrichie par les indices de recherche. Cette approche couvre un spectre bien plus large qu'un modèle spécialisé, au prix d'une précision légèrement inférieure sur les œuvres très obscures — un compromis acceptable pour l'usage visé.

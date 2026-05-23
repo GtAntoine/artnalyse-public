@@ -1,103 +1,43 @@
-# 01 — Vision Produit : Artnalyse
+# Vision produit — Artnalyse
 
-## Le Problème
+## Le problème
 
-Chaque année, des milliards de personnes visitent des musées et expositions. La grande majorité en ressort avec une expérience incomplète : elles ont vu des oeuvres, mais n'ont pas *compris* ce qu'elles regardaient.
+Les musées ont un problème d'accès à l'information. Une œuvre sur dix dispose d'un audioguide. Ceux qui existent sont vendus à l'entrée (3 à 5€), couvrent uniquement la collection permanente, et leur contenu n'a pas été mis à jour depuis des années. Le visiteur qui s'arrête devant une œuvre inconnue dans une galerie de province, dans une expo temporaire, ou à l'étranger, n'a rien.
 
-Les solutions existantes sont toutes insuffisantes :
+Wikipedia et Google sont la seule alternative — mais chercher "sculpture marbre femme ailes Louvre" ne donne rien d'utile, et encore faut-il savoir ce qu'on cherche.
 
-- **Audioguides traditionnels** : payants (3-5€), disponibles uniquement à l'entrée, couvrent 10-20% des oeuvres, contenu figé depuis des années
-- **Applications de musées** : existent seulement dans les grands musées, nécessitent un téléchargement préalable, contenu limité à leur collection
-- **Google Images / Wikipedia** : peu adaptés à un contexte de visite, textes académiques indigestes, pas d'expérience audio
+## La solution
 
-**Le vrai problème** : il n'existe aucune solution universelle pour comprendre une oeuvre d'art inconnue, n'importe où dans le monde, en temps réel.
+Une photo suffit. L'app identifie l'œuvre, génère une analyse complète et la lit à voix haute. Ça fonctionne dans n'importe quel musée, pour n'importe quelle œuvre, sans préparer quoi que ce soit à l'avance.
 
-## La Solution
+## Pourquoi c'est différent des alternatives
 
-Artnalyse transforme votre smartphone en **audioguide universel**. Photographiez n'importe quelle oeuvre, obtenez en quelques secondes :
+Les apps de musées (Louvre, Orsay, MoMA) nécessitent un téléchargement préalable et ne couvrent qu'un seul lieu. Google Lens identifie parfois des œuvres célèbres mais ne fournit aucune analyse. Les audioguides traditionnels sont des enregistrements fixes lus par un comédien, sans personnalisation.
 
-1. Son **identification complète** (titre, artiste, période, mouvement, technique)
-2. Un **récit immersif** (200-250 mots, style audioguide professionnel)
-3. Ses **points clés** pédagogiques (4-5 éléments essentiels)
-4. Une **anecdote captivante** qui fait vivre l'oeuvre
-5. Des **oeuvres similaires** à découvrir
+Artnalyse est la seule option qui fonctionne partout, sur n'importe quelle œuvre, sans préparation.
 
-Et tout cela **lu à voix haute**, en audio généré à la volée.
+## Les utilisateurs
 
-## Proposition de Valeur
+**Le visiteur curieux** visite des musées 3 à 6 fois par an. Il veut comprendre ce qu'il regarde sans se prendre la tête. Il ne prend jamais d'audioguide parce que la borne est loin, ça coûte quelque chose, et il faut rendre l'appareil avant la fin. Avec Artnalyse, il sort son téléphone, prend une photo, et écoute pendant 2 minutes devant l'œuvre.
 
-> "Artnalyse, c'est avoir un guide culturel expert dans sa poche — pour n'importe quelle oeuvre, dans n'importe quel musée du monde."
+**L'étudiant en histoire de l'art** a besoin d'informations précises rapidement. Il utilise l'app comme outil de révision et de découverte, et consulte l'historique pour retrouver des œuvres vues en cours ou en visite.
 
-## Personas
+**Le touriste culturel** est à Rome ou Florence pour 3 jours. Il veut passer du temps devant les œuvres importantes sans passer la moitié de la visite à lire des panneaux. Il veut de l'audio, les mains libres, et comprendre vite.
 
-### 🎨 Le Visiteur Curieux (principal)
-- **Profil** : 25-45 ans, niveau culturel moyen-élevé, visite des musées 3-6 fois/an
-- **Pain point** : veut comprendre les oeuvres mais trouve les audioguides trop contraignants
-- **Usage** : scan rapide pendant la visite, écoute pendant 2-3 minutes devant l'oeuvre
-- **Critère de succès** : "Wow, je ne savais pas ça !" (l'anecdote qui surprend)
+## Les décisions produit clés
 
-### 📚 L'Étudiant en Histoire de l'Art
-- **Profil** : 18-25 ans, études artistiques ou culturelles
-- **Pain point** : besoin d'informations détaillées rapidement, pas toujours accès aux ressources
-- **Usage** : outil de révision + découverte, garde l'historique pour référence
-- **Critère de succès** : précision de l'identification et richesse des détails
+**Pas de base de données propriétaire.** Maintenir une base d'œuvres d'art serait un gouffre en temps et en coût. À la place, l'app s'appuie sur l'analyse visuelle de l'IA, qui fonctionne sur n'importe quelle image. C'est ce qui rend la couverture universelle possible sans infrastructure éditoriale.
 
-### ✈️ Le Touriste Culturel
-- **Profil** : 35-60 ans, voyage dans des villes culturelles (Paris, Rome, Florence...)
-- **Pain point** : overwhelmé par le nombre d'oeuvres, veut optimiser sa visite
-- **Usage** : scan des oeuvres les plus importantes, écoute audio pendant la visite
-- **Critère de succès** : gain de temps + profondeur de compréhension
+**L'analyse s'affiche section par section, pas en une fois.** L'attente est le principal frein à l'adoption dans ce type d'app. En affichant l'identification dès qu'elle est disponible, puis le récit, puis les points clés, l'utilisateur a quelque chose à lire en moins de 3 secondes. Il ne voit jamais un spinner de 10 secondes.
 
-### 👨‍🎨 Le Passionné d'Art
-- **Profil** : tous âges, suit l'actualité artistique, visite des galeries régulièrement
-- **Pain point** : veut aller plus loin que la notice de la salle
-- **Usage** : exploration des oeuvres similaires, constitution d'une collection personnelle
-- **Critère de succès** : découverte d'oeuvres qu'il ne connaissait pas
+**L'audio se génère pendant que l'analyse s'affiche.** L'utilisateur finit de lire l'identification pendant que l'audio du récit se prépare. Quand il appuie sur "Écouter", le son est prêt.
 
-## Positionnement Marché
+**Historique et favoris.** Une visite de musée, ça se raconte. L'utilisateur qui retrouve ses œuvres analysées quelques jours après, avec la possibilité de réécouter, est un utilisateur qui revient et qui recommande l'app.
 
-### Matrice de positionnement
+## Positionnement
 
-```
-                 Couverture universelle
-                        ↑
-              Artnalyse  |
-                         |
-Gratuit ────────────────+──────────────── Premium
-                         |
-         Apps musées     |   Audioguides
-                         |   traditionnels
-                        ↓
-                 Collection limitée
-```
+Artnalyse se positionne entre l'audioguide professionnel (trop rigide, trop cher, trop limité) et la recherche Google (trop brute, pas adaptée au contexte de visite). La cible n'est pas le chercheur ou le professionnel du secteur — c'est le visiteur ordinaire qui veut vivre une meilleure expérience culturelle sans effort supplémentaire.
 
-### Différenciation clé
+## Ce qui a guidé les arbitrages
 
-Artnalyse est la **seule app** qui combine :
-- ✅ Couverture **universelle** (pas de base de données à maintenir)
-- ✅ **Identification** d'oeuvres inconnues (Google Lens + IA)
-- ✅ Analyse **en temps réel** (streaming, pas de templates figés)
-- ✅ **Audio** généré à la volée (TTS personnalisé)
-- ✅ **Historique personnel** de collection
-
-## Stratégie de Monétisation
-
-### Freemium
-- **Gratuit** : 5 analyses/mois, historique 20 oeuvres
-- **Premium (4,99€/mois)** : analyses illimitées, historique illimité, narrations audio premium
-- **Annual (39,99€/an)** : -33% vs mensuel
-
-### B2B (V3)
-- **SDK musées** : API pour intégrer Artnalyse dans leur app officielle
-- **White-label** : solution complète pour musées indépendants
-- **Pricing** : 200-500€/mois selon volume
-
-## Métriques de Succès
-
-| KPI | Cible M3 | Cible M12 |
-|----|---------|---------|
-| Téléchargements | 1 000 | 10 000 |
-| DAU/MAU | 20% | 30% |
-| Analyses/utilisateur/mois | 3 | 8 |
-| Conversion freemium → premium | 3% | 8% |
-| Note App Store | 4.0 | 4.5 |
+Chaque décision a été évaluée selon un seul critère : est-ce que ça réduit la friction entre la curiosité de l'utilisateur et la compréhension de l'œuvre ? L'identification automatique par photo plutôt que la saisie manuelle, l'affichage progressif plutôt que le chargement complet, l'audio généré à la volée plutôt que des enregistrements pré-produits — tout répond à ce critère.

@@ -1,224 +1,55 @@
-# 04 — Architecture Technique : Artnalyse
+# Architecture technique — Artnalyse
 
-## Vue d'Ensemble
+## Vue d'ensemble
 
-Artnalyse suit une architecture **client-lourd / serverless**. La logique métier sensible (clés API, IA) vit dans des Supabase Edge Functions (Deno). Le client React Native orchestre l'UX et le streaming.
+Artnalyse est une app mobile qui s'appuie sur trois services externes : OpenAI pour l'analyse visuelle et l'audio, SerpAPI pour l'identification par image, et Supabase pour les fonctions serveur et le stockage temporaire. Côté client, l'app gère l'interface, la caméra, la lecture audio et l'historique local.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Client iOS (React Native)              │
-│                                                           │
-│  CaptureScreen → useStreamingAnalysis → ResultScreen     │
-│       ↑                   ↑                  ↓           │
-│  expo-camera          XMLHttpRequest     expo-audio       │
-│  expo-image-picker    streaming NDJSON   AudioPlayer      │
-└────────────────────────────┬────────────────────────────┘
-                             │ HTTPS
-┌────────────────────────────▼────────────────────────────┐
-│               Supabase Edge Functions (Deno)             │
-│                                                           │
-│  artwork-analysis-stream      openai-tts-stream          │
-│  ├── SerpAPI Google Lens      └── OpenAI TTS API          │
-│  └── OpenAI GPT-5 Vision                                  │
-└────────────────────────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────┐
-│                    Supabase Storage                       │
-│           (images temporaires pour Google Lens)          │
-└─────────────────────────────────────────────────────────┘
-```
+L'architecture a été pensée pour minimiser ce qu'il faut maintenir. Pas de base de données propriétaire, pas de backend applicatif complexe, pas d'infrastructure à scaler. Le gros du travail est délégué à des services spécialisés.
 
-## Choix Techniques Majeurs
+## Les grandes décisions
 
-### 1. Supabase Edge Functions vs API Routes Next.js
+**Pourquoi les fonctions serveur plutôt qu'un appel direct depuis l'app ?**
 
-**Choix** : Supabase Edge Functions (Deno)
+Les clés API d'OpenAI et de SerpAPI ne peuvent pas être embarquées dans l'app. N'importe qui pourrait les extraire et les utiliser à nos frais. Toutes les clés sensibles vivent côté serveur, dans des variables d'environnement non exposées. L'app mobile n'a accès qu'à des clés anonymes limitées.
 
-**Raison** :
-- Proche géographiquement des APIs OpenAI/SerpAPI → latence réduite
-- Deno natif → streaming HTTP facilité
-- Intégration Supabase Auth + Storage sans configuration supplémentaire
-- Cold start < 50ms vs ~200ms pour Lambda@Edge
+**Pourquoi Supabase plutôt qu'AWS ou un serveur dédié ?**
 
-### 2. XMLHttpRequest vs fetch pour le streaming
+Supabase propose des fonctions serveur hébergées proches des services OpenAI, ce qui réduit la latence. La mise en place est rapide, la gestion est minimale, et le modèle de tarification est adapté à une app en croissance : on paie selon l'usage, pas un forfait fixe mensuel.
 
-**Choix** : XMLHttpRequest
+**Pourquoi React Native et pas une app native Swift/Kotlin ?**
 
-**Raison** :
-- React Native (au moment du développement) ne supportait pas `ReadableStream` sur fetch
-- `xhr.onprogress` permet la lecture progressive de `responseText`
-- Compatible Android et iOS sans polyfill
+Un seul codebase pour iOS et Android. Sur une app solo, écrire deux fois le même produit n'est pas envisageable. React Native offre des performances proches du natif pour ce type d'usage, avec un accès à la caméra et aux fichiers locaux sans friction.
 
-```typescript
-// Pattern adopté
-xhr.onprogress = () => {
-  const chunk = xhr.responseText.slice(lastProcessedLength);
-  lastProcessedLength = xhr.responseText.length;
-  processNdjsonChunk(chunk);
-};
-```
+## Les arbitrages par fonctionnalité
 
-### 3. Zustand vs Redux pour le state management
+**L'identification par image**
 
-**Choix** : Zustand
+Lancer une recherche d'image prend du temps. La décision : on ne la déclenche que quand les informations manquent vraiment (pas de photo de cartel, pas de saisie manuelle du titre et de l'artiste). Quand l'utilisateur a fourni les informations, on passe directement à l'analyse. Ça évite d'ajouter 3 à 5 secondes pour les utilisateurs qui savent ce qu'ils regardent.
 
-**Raison** :
-- API minimaliste → moins de boilerplate
-- Persistance AsyncStorage triviale avec `zustand/middleware`
-- Compatible TypeScript sans configuration complexe
-- Performance : subscriptions granulaires (pas de re-renders inutiles)
+Un timeout de 16 secondes a été fixé sur la recherche d'image. Au-delà, l'app continue sans le résultat de la recherche. L'analyse est légèrement moins précise mais l'utilisateur n'attend pas indéfiniment.
 
-### 4. expo-audio vs expo-av
+**L'affichage progressif**
 
-**Choix** : expo-audio (nouveau package Expo)
+L'analyse arrive en cinq sections dans l'ordre. La première (identification) est disponible en quelques secondes. Les suivantes arrivent dans la foulée. Ce n'est pas un simple effet visuel — ça change fondamentalement la perception de la vitesse. Un utilisateur qui attend 10 secondes sans rien voir abandonne. Un utilisateur qui voit quelque chose apparaître au bout de 3 secondes attend volontiers la suite.
 
-**Raison** :
-- expo-av est déprécié (legacy)
-- expo-audio offre une API plus claire pour les use cases simples
-- Support natif des contrôles système iOS (AirPlay, Control Center)
+**Le cache audio local**
 
-### 5. NDJSON vs JSON complet vs SSE
+Le fichier audio du récit est sauvegardé sur l'appareil après la première génération. Réécouter une analyse depuis l'historique ne génère pas un nouvel appel à l'API — l'audio est déjà là. C'est un gain en coût et en vitesse, et ça permet la réécoute hors connexion.
 
-**Choix** : NDJSON (Newline Delimited JSON)
+**L'historique limité à 100 entrées**
 
-**Raison** :
-- SSE (Server-Sent Events) : mal supporté dans React Native sans polyfill
-- JSON complet : pas de streaming possible, UX dégradée (attente 10s+)
-- NDJSON : compatible XMLHttpRequest, parsable ligne par ligne, format simple
+Stocker des centaines d'images et d'analyses en base64 sur un téléphone finirait par poser un problème d'espace. La limite de 100 œuvres est un choix pragmatique : c'est déjà beaucoup plus que ce qu'un utilisateur moyen analysera, et ça évite de gérer une infrastructure de stockage cloud pour l'historique.
 
-```
-// SSE format (écarté)
-data: {"type": "section", "content": "..."}
+## Ce qui a été écarté
 
-// NDJSON format (adopté)
-{"type": "identification", "data": {...}}\n
-{"type": "narrative", "data": {...}}\n
-```
+**Une base de données d'œuvres propriétaire.** Tenter de référencer des millions d'œuvres d'art était hors de portée en termes de coût et de maintenance. L'approche retenue — analyse visuelle directe enrichie par la recherche d'image — couvre un spectre bien plus large sans avoir à maintenir une base de données.
 
-## Navigation et Routing
+**Le fine-tuning du modèle.** Entraîner un modèle spécifique à l'histoire de l'art est un projet de plusieurs mois et de plusieurs dizaines de milliers d'euros. Le modèle de vision généraliste d'OpenAI, bien prompté, donne des résultats suffisamment précis pour l'usage visé, avec une couverture qui s'améliore automatiquement à chaque nouvelle version du modèle.
 
-```typescript
-// src/navigation/RootNavigator.tsx
+**Les fonctionnalités sociales.** Partager des collections, commenter les analyses d'autres utilisateurs, suivre des profils — tout ça a été écarté en V1. Ça ajoute de la complexité sans résoudre le problème principal. La valeur de l'app est dans l'analyse, pas dans le réseau.
 
-type RootStackParamList = {
-  Home: undefined;
-  Capture: undefined;
-  Result: {
-    resultId: string;
-    imageBase64: string;
-    imageUri: string;
-    artistName?: string;
-    artworkTitle?: string;
-    cartelBase64?: string;
-  };
-  History: undefined;
-  Settings: undefined;
-};
-```
+## Ce que ça coûte à maintenir
 
-**Note importante** : Il n'existe pas de AnalysisScreen séparé. `ResultScreen` gère à la fois le streaming en cours (avec indicateurs de progression) et l'affichage final. Ce choix simplifie la navigation et évite une transition qui briserait le flux immersif.
+Artnalyse n'a pas de serveur à surveiller, pas de base de données à sauvegarder, pas d'infrastructure à scaler manuellement. Les fonctions serveur s'exécutent à la demande et s'arrêtent quand elles ont fini. Le coût principal est proportionnel à l'usage — les appels à l'API OpenAI et à SerpAPI sont facturés par requête.
 
-## State Management — Détail
-
-```typescript
-// src/stores/app-store.ts
-
-interface AppStore {
-  // Historique (max 100 items, LIFO)
-  history: HistoryItem[];
-  addToHistory: (item: HistoryItem) => void;
-  removeFromHistory: (id: string) => void;
-  toggleFavorite: (id: string) => void;
-  updateAudioPath: (id: string, path: string) => void;
-  clearHistory: () => void;
-
-  // Préférences
-  hapticsEnabled: boolean;
-  toggleHaptics: () => void;
-
-  // Onboarding
-  hasSeenOnboarding: boolean;
-  setHasSeenOnboarding: () => void;
-}
-
-// Persisté dans AsyncStorage 'artnalyse-storage-v2'
-// Clé versionnée pour permettre des migrations futures
-```
-
-## Sécurité
-
-### Secrets côté serveur uniquement
-
-```
-Variables d'environnement (Supabase Edge Functions) :
-├── OPENAI_API_KEY      → Jamais exposé côté client
-├── SERPAPI_KEY         → Jamais exposé côté client
-└── SUPABASE_SERVICE_KEY → Jamais exposé côté client
-
-Variables côté client (préfixe EXPO_PUBLIC_) :
-├── EXPO_PUBLIC_SUPABASE_URL     → Domaine public Supabase
-└── EXPO_PUBLIC_SUPABASE_ANON_KEY → Clé anonyme (limitée par RLS)
-```
-
-### Rate limiting (prévu V2)
-
-- Supabase Auth → limite d'appels par utilisateur authentifié
-- Freemium : quota 5 analyses/mois géré côté Edge Function
-
-## Publication App Store
-
-### Expo EAS (Expo Application Services)
-
-```json
-// eas.json
-{
-  "build": {
-    "production": {
-      "ios": {
-        "resourceClass": "m-medium",
-        "distribution": "store"
-      }
-    }
-  }
-}
-```
-
-### Configuration iOS spécifique
-
-```javascript
-// app.config.js
-ios: {
-  bundleIdentifier: 'com.artnalyse.app',
-  infoPlist: {
-    ITSAppUsesNonExemptEncryption: false,     // Validation App Store simplifiée
-    CFBundleLocalizations: ['fr', 'en'],
-    NSCameraUsageDescription: 'Artnalyse utilise la caméra pour photographier les œuvres.',
-    NSPhotoLibraryUsageDescription: 'Artnalyse accède à vos photos pour importer des images.'
-  }
-}
-```
-
-### Processus de release
-
-```
-1. Bump version dans app.config.js
-2. eas build --platform ios --profile production
-3. eas submit --platform ios  (upload vers App Store Connect)
-4. Review Apple (~24-48h)
-5. Publication manuelle ou automatique
-```
-
-## Performance
-
-### Optimisations implémentées
-
-- **Images** : compression avant upload (1024px max, qualité 0.8)
-- **Historique** : limite hard 100 items avec rotation LIFO
-- **Audio cache** : MP3 stocké localement, pas re-téléchargé
-- **Base64** : thumbnails compressées (200px) pour l'historique, image originale uniquement pour l'analyse
-
-### Points d'amélioration identifiés (V2)
-
-- Mise en cache des analyses récentes (même oeuvre re-photographiée)
-- Lazy loading de l'historique (pagination)
-- Background download TTS pour les livres précédents
+C'est un modèle économique adapté à une app en croissance : les coûts augmentent avec l'usage, mais les revenus aussi. Il n'y a pas de frais fixes importants à couvrir avant d'avoir des utilisateurs payants.
