@@ -27,53 +27,51 @@
 
 ## 📚 Documentation détaillée
 
-- **[01 — Vision & marché](./docs/01-vision-produit.md)** — Positionnement, personas, opportunité
-- **[02 — Pipeline IA](./docs/02-pipeline-ia.md)** — Comment l'analyse se construit, de la photo au son
-- **[03 — Design system](./docs/03-design-system.md)** — "Le Vernissage" — couleurs, typographie, composants
-- **[04 — Architecture technique](./docs/04-architecture-technique.md)** — Choix techniques et arbitrages
+- **[01 - Vision & marché](./docs/01-vision-produit.md)** - Positionnement, personas, opportunité
+- **[02 - Pipeline IA](./docs/02-pipeline-ia.md)** - Comment l'analyse se construit, de la photo au son
+- **[03 - Design system](./docs/03-design-system.md)** - "Le Vernissage" : couleurs, typographie, composants
+- **[04 - Architecture technique](./docs/04-architecture-technique.md)** - Choix techniques et arbitrages
 
 ---
 
 ## C'est quoi
 
-Artnalyse est une application mobile disponible sur iOS et Android. Elle permet d'analyser n'importe quelle œuvre d'art en la photographiant.
+Artnalyse est une application mobile iOS et Android. Elle analyse n'importe quelle œuvre d'art à partir d'une photo.
 
-L'idée de départ : les audioguides de musée sont chers (3–5€ à l'entrée), couvrent 10% des œuvres, et leur contenu date de dix ans. Artnalyse fait ça pour n'importe quelle œuvre, dans n'importe quel musée du monde, gratuitement.
+Le problème de départ : les audioguides de musée coûtent 3 à 5€ à l'entrée, couvrent 10% des œuvres, et leur contenu date de dix ans. Artnalyse fait la même chose pour n'importe quelle œuvre, dans n'importe quel musée du monde.
 
-**Ce que l'utilisateur voit :**
-- Il prend une photo — ou importe une image de sa galerie
-- L'analyse arrive progressivement, section après section, sans écran de chargement : identification, récit, points clés, anecdote, œuvres similaires
-- Il peut écouter le récit en audio (généré à la volée) avec un player complet : pause, avance rapide, vitesse variable
-- Il retrouve toutes ses œuvres analysées dans un historique personnel
+**Ce que l'utilisateur trouve dans l'app :**
+- Il prend une photo ou importe une image depuis sa galerie
+- L'analyse s'affiche progressivement, section après section : identification, récit, points clés, anecdote, œuvres similaires
+- Il écoute le récit en audio, généré au moment de l'analyse, avec pause, avance rapide et vitesse variable
+- Il retrouve toutes ses œuvres dans un historique personnel avec favoris
 
 ---
 
 ## Ce que ça démontre
 
-**Construire un produit de A à Z, seul**
-
-Artnalyse n'est pas un wrapper autour d'une API. C'est un produit complet, publié sur deux stores, avec une expérience utilisateur pensée pour qu'on oublie la technique derrière.
+Artnalyse est publiée sur deux stores, avec de vrais utilisateurs et une expérience construite pour qu'on oublie la technique derrière.
 
 | Compétence | Ce qui le prouve |
 |-----------|-----------------|
-| Vision produit | Identifier un vrai problème (les audioguides ne couvrent pas tout), trouver un angle clair |
-| UX mobile native | L'analyse s'affiche en temps réel, section par section — pas de spinner de 10 secondes |
-| Architecture IA | Identifier l'œuvre même sans nom, via une recherche d'image inversée automatique |
-| Design premium | Thème "Le Vernissage" — noir profond, or champagne, Playfair Display — cohérent sur chaque écran |
-| Audio à la volée | Le texte est converti en audio et synchronisé pendant que l'analyse se construit |
-| Publication | iOS App Store + Google Play, gestion des permissions caméra/galerie, cycles de release |
+| Vision produit | Identifier un vrai problème (audioguides trop limités), trouver un angle précis |
+| UX mobile | L'analyse s'affiche section par section, pas de spinner de 10 secondes |
+| Identification d'image | Si l'utilisateur ne saisit pas le nom, l'app lance une recherche d'image automatique |
+| Design cohérent | Thème "Le Vernissage" : fond noir, or champagne, Playfair Display, sur chaque écran |
+| Audio à la volée | Le récit est converti en audio pendant que les autres sections se chargent |
+| Publication | iOS App Store + Google Play, gestion des permissions caméra et galerie |
 
 ---
 
 ## Comment ça fonctionne
 
-La photo est envoyée à une fonction serveur (Supabase Edge Functions). Si l'utilisateur n'a pas saisi le nom de l'œuvre, l'app lance d'abord une recherche d'image sur Google Lens pour l'identifier. Ensuite, le modèle de vision d'OpenAI analyse l'image et génère cinq sections dans l'ordre : identification → récit → points clés → anecdote → œuvres similaires. Chaque section arrive dès qu'elle est prête — l'utilisateur lit pendant que la suivante se génère.
+La photo part vers une fonction serveur (Supabase Edge Functions). Si l'utilisateur n'a pas saisi le nom de l'œuvre, l'app interroge d'abord Google Lens pour identifier l'œuvre. Ensuite, le modèle de vision d'OpenAI génère cinq sections dans l'ordre : identification, récit, points clés, anecdote, œuvres similaires. Chaque section arrive dès qu'elle est prête pendant que la suivante se génère.
 
-L'audio du récit est généré en parallèle sur le même serveur et mis en cache localement. Il est disponible pour réécoute même hors connexion.
+L'audio du récit est produit en parallèle et mis en cache localement. Il reste disponible à la réécoute hors connexion.
 
 ```
-Photo → recherche d'image (si besoin) → analyse IA → 5 sections progressives
-                                                    ↘ audio généré en parallèle
+Photo → identification automatique (si besoin) → analyse IA → 5 sections progressives
+                                                             ↘ audio généré en parallèle
 ```
 
 ---
@@ -95,13 +93,13 @@ Photo → recherche d'image (si besoin) → analyse IA → 5 sections progressiv
 
 ## Design
 
-Le thème s'appelle "Le Vernissage". L'idée : l'app doit ressembler à une galerie privée, pas à une app utilitaire. Fond quasi-noir (#080808), accents or champagne (#c9a55c), typographie Playfair Display pour les titres d'œuvres. Chaque écran applique les mêmes tokens — rien ne détonne.
+Le thème s'appelle "Le Vernissage". Fond quasi-noir (#080808), accents or champagne (#c9a55c), Playfair Display pour les titres d'œuvres. Le parti pris : une app qui ressemble à une galerie privée, pas à un outil utilitaire. Les mêmes tokens s'appliquent sur chaque écran.
 
 ---
 
 ## Roadmap
 
-**Fait ✅**
+**Fait**
 - Analyse photo avec identification automatique
 - Récit audio généré à la volée
 - 5 sections d'analyse progressives
@@ -109,7 +107,7 @@ Le thème s'appelle "Le Vernissage". L'idée : l'app doit ressembler à une gale
 - Publication iOS + Android
 
 **Prévu**
-- [ ] Mode visite : naviguer entre œuvres d'un même musée
-- [ ] Partage d'une œuvre analysée (lien public)
+- [ ] Mode visite : naviguer entre les œuvres d'un même musée
+- [ ] Partage d'une œuvre analysée via lien public
 - [ ] Traductions EN, ES, DE, IT
 - [ ] B2B : intégration dans les apps de musées
