@@ -5,12 +5,12 @@
 <div align="center">
 
 [![App Store](https://img.shields.io/badge/App_Store-0D96F6?style=for-the-badge&logo=app-store&logoColor=white)](https://apps.apple.com/fr/app/artnalyse/id6762506288)
-[![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)](https://apps.apple.com/fr/app/artnalyse/id6762506288)
+[![Google Play](https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white)](https://play.google.com/store/apps/details?id=fr.goethals.artnalyse)
 [![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
 
-**[📱 Télécharger sur l'App Store](https://apps.apple.com/fr/app/artnalyse/id6762506288) · [🌐 Site Web](https://goethals.fr/artnalyse/)**
+**[📱 App Store](https://apps.apple.com/fr/app/artnalyse/id6762506288) · [🤖 Google Play](https://play.google.com/store/apps/details?id=fr.goethals.artnalyse) · [🌐 Site Web](https://goethals.fr/artnalyse/)**
 
 </div>
 
@@ -341,7 +341,7 @@ App
 | **Plateforme** | iOS (iPhone) |
 | **Orientation** | Portrait uniquement |
 | **Langues** | Français + Anglais |
-| **Publication** | App Store France |
+| **Publication** | App Store (iOS) + Google Play (Android) |
 
 ---
 
